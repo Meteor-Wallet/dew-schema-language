@@ -120,7 +120,7 @@ impl DewSchemaLanguageEngine {
                 if self.host_functions.contains_key(method_name) {
                     let evaluated_args: Result<Vec<DewSchemaLanguageResult>, String> = args
                         .iter()
-                        .map(|arg| self.evaluate_atom(arg, None, None))
+                        .map(|arg| self.evaluate_atom(arg, None, iterable_item))
                         .collect();
 
                     let evaluated_args = evaluated_args?;
@@ -143,7 +143,7 @@ impl DewSchemaLanguageEngine {
                                 return Err(format!("Cannot call 'equal' on null"));
                             }
 
-                            let arg_result = self.evaluate_atom(&args[0], None, None)?;
+                            let arg_result = self.evaluate_atom(&args[0], None, iterable_item)?;
 
                             let is_equal = *callee.unwrap() == arg_result;
 
@@ -214,7 +214,7 @@ impl DewSchemaLanguageEngine {
                                 return Err(format!("Cannot call 'in' on null"));
                             }
 
-                            let arg_result = self.evaluate_atom(&args[0], None, None)?;
+                            let arg_result = self.evaluate_atom(&args[0], None, iterable_item)?;
 
                             match arg_result {
                                 DewSchemaLanguageResult::Value(Value::Array(arr)) => {
@@ -247,7 +247,8 @@ impl DewSchemaLanguageEngine {
                                 ));
                             }
 
-                            let percentage_result = self.evaluate_atom(&args[0], None, None)?;
+                            let percentage_result =
+                                self.evaluate_atom(&args[0], None, iterable_item)?;
 
                             let percentage = match percentage_result {
                                 DewSchemaLanguageResult::Number(n) => n,
@@ -285,14 +286,19 @@ impl DewSchemaLanguageEngine {
             }
             DewSchemaLanguageExpression::Chain(chains) => {
                 let first_expression = &chains[0];
-                let first_expression_result = self.evaluate_atom(first_expression, callee, None)?;
+                let first_expression_result =
+                    self.evaluate_atom(first_expression, callee, iterable_item)?;
 
                 if chains.len() == 1 {
                     first_expression_result
                 } else {
                     let remaining_chains = DewSchemaLanguageExpression::Chain(chains[1..].to_vec());
 
-                    self.evaluate_atom(&remaining_chains, Some(&first_expression_result), None)?
+                    self.evaluate_atom(
+                        &remaining_chains,
+                        Some(&first_expression_result),
+                        iterable_item,
+                    )?
                 }
             }
         };
