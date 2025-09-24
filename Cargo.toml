@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "dew-schema-language"
+    "dew-schema-language",
+    "dsl-web-wasm"
 ]
