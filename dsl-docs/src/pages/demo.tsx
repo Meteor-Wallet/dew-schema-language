@@ -184,6 +184,8 @@ export default function Demo() {
 
             const result = dsl.evaluate(schemaRule);
 
+            console.log('DSL Result:', result);
+
             setSchemaResult(JSON.stringify(result, null, 4));
         } catch (err) {
             setSchemaResult('Error: ' + (err as Error).message);

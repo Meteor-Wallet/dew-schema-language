@@ -95,7 +95,10 @@ fn rust_result_to_jsvalue(r: DewSchemaLanguageResult) -> JsValue {
         DewSchemaLanguageResult::Number(n) => JsValue::from_f64(n),
         DewSchemaLanguageResult::String(s) => JsValue::from_str(&s),
         DewSchemaLanguageResult::Boolean(b) => JsValue::from_bool(b),
-        DewSchemaLanguageResult::Value(v) => serde_wasm_bindgen::to_value(&v).unwrap(),
+        DewSchemaLanguageResult::Value(v) => {
+            let s = serde_json::to_string(&v).unwrap();
+            js_sys::JSON::parse(&s).unwrap()
+        }
         DewSchemaLanguageResult::Error(e) => JsValue::from_str(&format!("Error: {}", e)),
         DewSchemaLanguageResult::Null => JsValue::NULL,
         DewSchemaLanguageResult::Undefined => JsValue::UNDEFINED,
