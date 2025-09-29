@@ -1,6 +1,9 @@
 use std::{collections::HashMap, num::ParseFloatError};
 
-use crate::expression::DewSchemaLanguageExpression;
+use crate::{
+    expression::DewSchemaLanguageExpression,
+    methods::{alias, array, cores, math},
+};
 
 type Value = serde_json::Value;
 
@@ -15,21 +18,16 @@ pub enum DewSchemaLanguageResult {
     Undefined,
 }
 
-pub type HostFunctionParams = Vec<DewSchemaLanguageResult>;
-pub type HostFunctionCallee<'host_function_lifetime> =
+pub type DslFunctionParams = Vec<DewSchemaLanguageResult>;
+pub type DslFunctionCallee<'host_function_lifetime> =
     Option<&'host_function_lifetime DewSchemaLanguageResult>;
+
+pub type DslFunction =
+    Box<dyn Fn(DslFunctionParams, DslFunctionCallee) -> Result<DewSchemaLanguageResult, String>>;
 
 pub struct DewSchemaLanguageEngine {
     root_object: Value,
-    host_functions: HashMap<
-        String,
-        Box<
-            dyn Fn(
-                HostFunctionParams,
-                HostFunctionCallee,
-            ) -> Result<DewSchemaLanguageResult, String>,
-        >,
-    >,
+    host_functions: HashMap<String, DslFunction>,
 }
 
 impl DewSchemaLanguageEngine {
@@ -39,8 +37,8 @@ impl DewSchemaLanguageEngine {
             String,
             Box<
                 dyn Fn(
-                    HostFunctionParams,
-                    HostFunctionCallee,
+                    DslFunctionParams,
+                    DslFunctionCallee,
                 ) -> Result<DewSchemaLanguageResult, String>,
             >,
         >,
@@ -117,170 +115,46 @@ impl DewSchemaLanguageEngine {
                 }
             }
             DewSchemaLanguageExpression::Call { method_name, args } => {
-                if self.host_functions.contains_key(method_name) {
-                    let evaluated_args: Result<Vec<DewSchemaLanguageResult>, String> = args
-                        .iter()
-                        .map(|arg| self.evaluate_atom(arg, None, iterable_item))
-                        .collect();
+                let evaluated_args: Result<Vec<DewSchemaLanguageResult>, String> = args
+                    .iter()
+                    .map(|arg| self.evaluate_atom(arg, None, iterable_item))
+                    .collect();
 
-                    let evaluated_args = evaluated_args?;
+                let evaluated_args = evaluated_args?;
 
-                    let func = self.host_functions.get(method_name).unwrap();
+                let aliased_functions = alias::functions();
+                let cores_functions = cores::functions();
+                let math_functions = math::functions();
+                let array_functions = array::functions();
 
-                    func(evaluated_args, callee)?
-                } else {
-                    if callee.is_none() {
-                        return Err(format!("Cannot call method '{}' on null", method_name));
+                match method_name {
+                    method_name if self.host_functions.contains_key(method_name) => {
+                        let func = self.host_functions.get(method_name).unwrap();
+
+                        func(evaluated_args, callee)?
                     }
+                    method_name if aliased_functions.contains_key(method_name) => {
+                        let func = aliased_functions.get(method_name).unwrap();
 
-                    match method_name.as_str() {
-                        "equal" => {
-                            if args.len() != 1 {
-                                return Err(format!("'equal' method expects exactly one argument"));
-                            }
+                        func(evaluated_args, callee)?
+                    }
+                    method_name if cores_functions.contains_key(method_name) => {
+                        let func = cores_functions.get(method_name).unwrap();
 
-                            if callee.is_none() {
-                                return Err(format!("Cannot call 'equal' on null"));
-                            }
+                        func(evaluated_args, callee)?
+                    }
+                    method_name if math_functions.contains_key(method_name) => {
+                        let func = math_functions.get(method_name).unwrap();
 
-                            let arg_result = self.evaluate_atom(&args[0], None, iterable_item)?;
+                        func(evaluated_args, callee)?
+                    }
+                    method_name if array_functions.contains_key(method_name) => {
+                        let func = array_functions.get(method_name).unwrap();
 
-                            let is_equal = *callee.unwrap() == arg_result;
-
-                            DewSchemaLanguageResult::Boolean(is_equal)
-                        }
-                        "foreach_check" => {
-                            if args.len() != 1 {
-                                return Err(format!(
-                                    "'foreach_check' method expects exactly one argument"
-                                ));
-                            }
-
-                            match callee {
-                                Some(DewSchemaLanguageResult::Value(Value::Array(arr))) => {
-                                    let mut result = true;
-
-                                    for item in arr {
-                                        let eval_result = self.evaluate_atom(
-                                            &args[0],
-                                            None,
-                                            Some(&DewSchemaLanguageResult::Value(item.clone())),
-                                        )?;
-
-                                        match eval_result {
-                                            DewSchemaLanguageResult::Boolean(b) => {
-                                                result = result && b;
-
-                                                if !b {
-                                                    break;
-                                                }
-                                            }
-                                            _ => {
-                                                return Err(format!(
-                                                    "'foreach_check' callback must return a boolean"
-                                                ));
-                                            }
-                                        };
-                                    }
-
-                                    DewSchemaLanguageResult::Boolean(result)
-                                }
-                                _ => {
-                                    return Err(format!(
-                                        "Cannot call 'foreach_check' on non-array"
-                                    ));
-                                }
-                            }
-                        }
-                        "length" => match callee {
-                            Some(DewSchemaLanguageResult::String(s)) => {
-                                DewSchemaLanguageResult::Number(s.len() as f64)
-                            }
-                            Some(DewSchemaLanguageResult::Value(Value::Array(arr))) => {
-                                DewSchemaLanguageResult::Number(arr.len() as f64)
-                            }
-                            _ => {
-                                return Err(format!(
-                                    "Cannot call 'length' on non-string/non-array"
-                                ));
-                            }
-                        },
-                        "in" => {
-                            if args.len() != 1 {
-                                return Err(format!("'in' method expects exactly one argument"));
-                            }
-
-                            if callee.is_none() {
-                                return Err(format!("Cannot call 'in' on null"));
-                            }
-
-                            let arg_result = self.evaluate_atom(&args[0], None, iterable_item)?;
-
-                            match arg_result {
-                                DewSchemaLanguageResult::Value(Value::Array(arr)) => {
-                                    let contains = arr.iter().any(|item| {
-                                        let item_result = match item {
-                                            Value::Null => DewSchemaLanguageResult::Null,
-                                            Value::Bool(b) => DewSchemaLanguageResult::Boolean(*b),
-                                            Value::Number(n) => {
-                                                DewSchemaLanguageResult::Number(n.as_f64().unwrap())
-                                            }
-                                            Value::String(s) => {
-                                                DewSchemaLanguageResult::String(s.clone())
-                                            }
-                                            _ => DewSchemaLanguageResult::Value(item.clone()),
-                                        };
-                                        *callee.unwrap() == item_result
-                                    });
-
-                                    DewSchemaLanguageResult::Boolean(contains)
-                                }
-                                _ => {
-                                    return Err(format!("'in' method argument must be an array"));
-                                }
-                            }
-                        }
-                        "percent" => {
-                            if args.len() != 1 {
-                                return Err(format!(
-                                    "'percent method expects exactly one argument"
-                                ));
-                            }
-
-                            let percentage_result =
-                                self.evaluate_atom(&args[0], None, iterable_item)?;
-
-                            let percentage = match percentage_result {
-                                DewSchemaLanguageResult::Number(n) => n,
-                                _ => {
-                                    return Err(format!(
-                                        "'percent method first argument must be a number"
-                                    ));
-                                }
-                            };
-
-                            match callee {
-                                Some(DewSchemaLanguageResult::Number(n)) => {
-                                    DewSchemaLanguageResult::Number(n * (percentage / 100.0))
-                                }
-                                _ => {
-                                    return Err(format!("Cannot call 'percent' on non-number"));
-                                }
-                            }
-                        }
-                        "to_number" => match callee {
-                            Some(DewSchemaLanguageResult::String(s)) => match s.parse::<f64>() {
-                                Ok(n) => DewSchemaLanguageResult::Number(n),
-                                Err(_) => DewSchemaLanguageResult::Error(format!(
-                                    "Cannot convert string '{}' to number",
-                                    s
-                                )),
-                            },
-                            _ => {
-                                return Err(format!("Cannot call 'toNumber' on non-string"));
-                            }
-                        },
-                        _ => return Err(format!("Unknown method: {}", method_name)),
+                        func(evaluated_args, callee)?
+                    }
+                    _ => {
+                        return Err(format!("Unknown method: {}", method_name));
                     }
                 }
             }
@@ -376,8 +250,8 @@ mod tests {
             String,
             Box<
                 dyn Fn(
-                    HostFunctionParams,
-                    HostFunctionCallee,
+                    DslFunctionParams,
+                    DslFunctionCallee,
                 ) -> Result<DewSchemaLanguageResult, String>,
             >,
         > = HashMap::new();
