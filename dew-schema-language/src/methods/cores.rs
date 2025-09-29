@@ -6,6 +6,34 @@ pub fn functions() -> HashMap<String, DslFunction> {
     let mut map: HashMap<String, DslFunction> = HashMap::new();
 
     map.insert(
+        "and".to_string(),
+        Box::new(|args, callee| {
+            if args.len() < 1 {
+                return Err(format!("'and' method expects at least one argument"));
+            }
+
+            let callee = callee.unwrap_or(&DewSchemaLanguageResult::Boolean(true));
+            let mut result = true;
+
+            for arg in args {
+                match (callee, arg) {
+                    (
+                        DewSchemaLanguageResult::Boolean(callee_bool),
+                        DewSchemaLanguageResult::Boolean(arg_bool),
+                    ) => {
+                        result = result && *callee_bool && arg_bool;
+                    }
+                    _ => {
+                        return Err(format!("'and' method expects boolean arguments"));
+                    }
+                }
+            }
+
+            Ok(DewSchemaLanguageResult::Boolean(result))
+        }),
+    );
+
+    map.insert(
         "equal".to_string(),
         Box::new(|args, callee| {
             if args.len() != 1 {
@@ -61,6 +89,34 @@ pub fn functions() -> HashMap<String, DslFunction> {
                 ) => Ok(DewSchemaLanguageResult::Boolean(callee_num <= arg_num)),
                 _ => Err(format!("'lte' method expects numeric arguments")),
             }
+        }),
+    );
+
+    map.insert(
+        "or".to_string(),
+        Box::new(|args, callee| {
+            if args.len() < 1 {
+                return Err(format!("'or' method expects at least one argument"));
+            }
+
+            let callee = callee.unwrap_or(&DewSchemaLanguageResult::Boolean(false));
+            let mut result = false;
+
+            for arg in args {
+                match (callee, arg) {
+                    (
+                        DewSchemaLanguageResult::Boolean(callee_bool),
+                        DewSchemaLanguageResult::Boolean(arg_bool),
+                    ) => {
+                        result = result || *callee_bool || arg_bool;
+                    }
+                    _ => {
+                        return Err(format!("'or' method expects boolean arguments"));
+                    }
+                }
+            }
+
+            Ok(DewSchemaLanguageResult::Boolean(result))
         }),
     );
 
