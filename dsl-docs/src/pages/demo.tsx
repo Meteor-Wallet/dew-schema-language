@@ -293,6 +293,25 @@ export default function Demo() {
                         onChange={(value) => setSchemaRule(value || '')}
                         theme={isDark ? 'vs-dark' : 'light'}
                         options={{ minimap: { enabled: false } }}
+                        beforeMount={(monaco) => {
+                            // 1. Remove the default JS libs
+                            monaco.languages.typescript.javascriptDefaults.setCompilerOptions(
+                                {
+                                    noLib: true, // disable built-in `lib.d.ts`
+                                    allowNonTsExtensions: true,
+                                }
+                            );
+
+                            // 2. Add your own DSL typings
+                            fetch('/dsl.d.ts')
+                                .then((res) => res.text())
+                                .then((dts) => {
+                                    monaco.languages.typescript.javascriptDefaults.addExtraLib(
+                                        dts,
+                                        'file:///node_modules/@types/dsl/index.d.ts'
+                                    );
+                                });
+                        }}
                     />
 
                     <label>

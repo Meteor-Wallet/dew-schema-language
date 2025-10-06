@@ -6,6 +6,21 @@ pub fn functions() -> HashMap<String, DslFunction> {
     let mut map: HashMap<String, DslFunction> = HashMap::new();
 
     map.insert(
+        "".to_string(),
+        Box::new(|args, callee| {
+            if args.len() != 1 {
+                return Err(format!("Method expects exactly one argument"));
+            }
+
+            if callee.is_some() {
+                return Err(format!("Cannot call method on result"));
+            }
+
+            Ok(args[0].clone())
+        }),
+    );
+
+    map.insert(
         "and".to_string(),
         Box::new(|args, callee| {
             if args.len() < 1 {

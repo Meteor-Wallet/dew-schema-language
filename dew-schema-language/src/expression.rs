@@ -77,6 +77,32 @@ impl DewSchemaLanguageParser {
             Some(DewSchemaLanguageToken::StringLiteral(s)) => {
                 Ok(DewSchemaLanguageExpression::StringLiteral(s))
             }
+            Some(DewSchemaLanguageToken::LeftParenthesis) => {
+                let mut args = Vec::new();
+
+                if let Some(DewSchemaLanguageToken::RightParenthesis) = self.peek() {
+                    self.next(); // consume ')'
+                } else {
+                    loop {
+                        args.push(self.parse()?);
+                        match self.peek() {
+                            Some(DewSchemaLanguageToken::Comma) => {
+                                self.next(); // consume ','
+                            }
+                            Some(DewSchemaLanguageToken::RightParenthesis) => {
+                                self.next(); // consume ')'
+                                break;
+                            }
+                            other => return Err(format!("Unexpected token in args: {:?}", other)),
+                        }
+                    }
+                }
+
+                Ok(DewSchemaLanguageExpression::Call {
+                    method_name: "".to_string(),
+                    args,
+                })
+            }
             Some(DewSchemaLanguageToken::Identifier(name)) => {
                 // function call or just identifier
                 if let Some(DewSchemaLanguageToken::LeftParenthesis) = self.peek() {
