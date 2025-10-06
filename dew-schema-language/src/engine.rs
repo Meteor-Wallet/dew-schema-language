@@ -86,6 +86,10 @@ impl DewSchemaLanguageEngine {
                     }
                 } else if callee.is_none() && identifier == "item" {
                     iterable_item.unwrap().clone()
+                } else if callee.is_none() && identifier == "true" {
+                    DewSchemaLanguageResult::Boolean(true)
+                } else if callee.is_none() && identifier == "false" {
+                    DewSchemaLanguageResult::Boolean(false)
                 } else if callee.is_none() {
                     return Err(format!("Unknown identifier: {}", identifier));
                 } else {
