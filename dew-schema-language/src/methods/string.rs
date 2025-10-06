@@ -33,6 +33,42 @@ pub fn functions() -> HashMap<String, DslFunction> {
     );
 
     map.insert(
+        "concat".to_string(),
+        Box::new(|args, callee| {
+            if args.is_empty() {
+                return Err(format!("'concat' method expects at least one argument"));
+            }
+
+            let mut result = String::new();
+
+            match callee {
+                Some(DewSchemaLanguageResult::Value(serde_json::Value::String(s))) => {
+                    result.push_str(s);
+                }
+                Some(_) => {
+                    return Err(format!("'concat' method can only be called on strings"));
+                }
+                None => {}
+            }
+
+            for arg in args {
+                match arg {
+                    DewSchemaLanguageResult::Value(serde_json::Value::String(s)) => {
+                        result.push_str(s.as_str());
+                    }
+                    _ => {
+                        return Err(format!(
+                            "'concat' method can only be called with string arguments"
+                        ));
+                    }
+                }
+            }
+
+            Ok(DewSchemaLanguageResult::String(result))
+        }),
+    );
+
+    map.insert(
         "to_lowercase".to_string(),
         Box::new(|args, callee| {
             if !args.is_empty() {
