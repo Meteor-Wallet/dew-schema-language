@@ -6,6 +6,25 @@ pub fn functions() -> HashMap<String, DslFunction> {
     let mut map: HashMap<String, DslFunction> = HashMap::new();
 
     map.insert(
+        "assert_case_insensitive_equal".to_string(),
+        Box::new(|params, callee| {
+            let result = crate::methods::string::functions()
+                .get("case_insensitive_equal")
+                .unwrap()(params.clone(), callee)?;
+
+            if result != DewSchemaLanguageResult::Boolean(true) {
+                return Err(format!(
+                    "{:?} is not case insensitively equal to {:?}",
+                    callee.unwrap(),
+                    params[0]
+                ));
+            }
+
+            Ok(DewSchemaLanguageResult::Boolean(true))
+        }),
+    );
+
+    map.insert(
         "assert_equal".to_string(),
         Box::new(|params, callee| {
             let result =

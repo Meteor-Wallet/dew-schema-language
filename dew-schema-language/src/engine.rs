@@ -2,7 +2,7 @@ use std::{collections::HashMap, num::ParseFloatError};
 
 use crate::{
     expression::DewSchemaLanguageExpression,
-    methods::{alias, array, cores, math},
+    methods::{alias, array, cores, math, string},
 };
 
 type Value = serde_json::Value;
@@ -130,6 +130,7 @@ impl DewSchemaLanguageEngine {
                 let cores_functions = cores::functions();
                 let math_functions = math::functions();
                 let array_functions = array::functions();
+                let string_functions = string::functions();
 
                 match method_name {
                     method_name if self.host_functions.contains_key(method_name) => {
@@ -154,6 +155,11 @@ impl DewSchemaLanguageEngine {
                     }
                     method_name if array_functions.contains_key(method_name) => {
                         let func = array_functions.get(method_name).unwrap();
+
+                        func(evaluated_args, callee)?
+                    }
+                    method_name if string_functions.contains_key(method_name) => {
+                        let func = string_functions.get(method_name).unwrap();
 
                         func(evaluated_args, callee)?
                     }
