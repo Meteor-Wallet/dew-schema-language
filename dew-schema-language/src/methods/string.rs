@@ -20,8 +20,8 @@ pub fn functions() -> HashMap<String, DslFunction> {
 
             match (callee.unwrap(), &args[0]) {
                 (
-                    DewSchemaLanguageResult::Value(serde_json::Value::String(callee_str)),
-                    DewSchemaLanguageResult::Value(serde_json::Value::String(arg_str)),
+                    DewSchemaLanguageResult::String(callee_str),
+                    DewSchemaLanguageResult::String(arg_str),
                 ) => Ok(DewSchemaLanguageResult::Boolean(
                     callee_str.eq_ignore_ascii_case(arg_str),
                 )),
@@ -42,7 +42,7 @@ pub fn functions() -> HashMap<String, DslFunction> {
             let mut result = String::new();
 
             match callee {
-                Some(DewSchemaLanguageResult::Value(serde_json::Value::String(s))) => {
+                Some(DewSchemaLanguageResult::String(s)) => {
                     result.push_str(s);
                 }
                 Some(_) => {
@@ -53,7 +53,7 @@ pub fn functions() -> HashMap<String, DslFunction> {
 
             for arg in args {
                 match arg {
-                    DewSchemaLanguageResult::Value(serde_json::Value::String(s)) => {
+                    DewSchemaLanguageResult::String(s) => {
                         result.push_str(s.as_str());
                     }
                     _ => {
@@ -80,7 +80,7 @@ pub fn functions() -> HashMap<String, DslFunction> {
             }
 
             match callee.unwrap() {
-                DewSchemaLanguageResult::Value(serde_json::Value::String(s)) => {
+                DewSchemaLanguageResult::String(s) => {
                     Ok(DewSchemaLanguageResult::String(s.to_lowercase()))
                 }
                 _ => Err(format!(
@@ -102,7 +102,7 @@ pub fn functions() -> HashMap<String, DslFunction> {
             }
 
             match callee.unwrap() {
-                DewSchemaLanguageResult::Value(serde_json::Value::String(s)) => {
+                DewSchemaLanguageResult::String(s) => {
                     Ok(DewSchemaLanguageResult::String(s.to_uppercase()))
                 }
                 _ => Err(format!(
