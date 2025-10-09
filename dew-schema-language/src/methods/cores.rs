@@ -87,6 +87,48 @@ pub fn functions() -> HashMap<String, DslFunction> {
     );
 
     map.insert(
+        "json".to_string(),
+        Box::new(|args, callee| {
+            if !args.is_empty() {
+                return Err(format!("'json' method expects no arguments"));
+            }
+
+            if callee.is_none() {
+                return Err(format!("Cannot call 'json' on null"));
+            }
+
+            match callee.unwrap() {
+                DewSchemaLanguageResult::String(s) => {
+                    match serde_json::from_str::<serde_json::Value>(&s) {
+                        Ok(json_value) => match json_value {
+                            serde_json::Value::Bool(b) => Ok(DewSchemaLanguageResult::Boolean(b)),
+                            serde_json::Value::Number(n) => {
+                                if let Some(f) = n.as_f64() {
+                                    Ok(DewSchemaLanguageResult::Number(f))
+                                } else {
+                                    Err(format!("Number out of range"))
+                                }
+                            }
+                            serde_json::Value::String(s) => Ok(DewSchemaLanguageResult::String(s)),
+                            serde_json::Value::Array(arr) => Ok(DewSchemaLanguageResult::Value(
+                                serde_json::Value::Array(arr),
+                            )),
+                            serde_json::Value::Object(obj) => Ok(DewSchemaLanguageResult::Value(
+                                serde_json::Value::Object(obj),
+                            )),
+                            serde_json::Value::Null => {
+                                Ok(DewSchemaLanguageResult::Value(serde_json::Value::Null))
+                            }
+                        },
+                        Err(e) => Err(format!("Failed to parse JSON: {}", e)),
+                    }
+                }
+                _ => Err(format!("'json' method can only be called on strings")),
+            }
+        }),
+    );
+
+    map.insert(
         "lte".to_string(),
         Box::new(|args, callee| {
             if args.len() != 1 {
