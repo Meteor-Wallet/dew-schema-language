@@ -48,6 +48,65 @@ pub fn functions() -> HashMap<String, DslFunction> {
     );
 
     map.insert(
+        "get_index".to_string(),
+        Box::new(|args, callee| {
+            if args.len() != 1 {
+                return Err(format!("'get_index' method expects exactly one argument"));
+            }
+
+            if callee.is_none() {
+                return Err(format!("Cannot call 'get_index' on null"));
+            }
+
+            let flex_index = match &args[0] {
+                DewSchemaLanguageResult::Number(n) => {
+                    if n.fract() != 0.0 {
+                        return Err(format!("Index must be an integer"));
+                    }
+
+                    *n as i64
+                }
+                _ => {
+                    return Err(format!("'get_index' method expects a number as argument"));
+                }
+            };
+
+            match callee.unwrap() {
+                DewSchemaLanguageResult::Value(serde_json::Value::Array(arr)) => {
+                    if flex_index < 0 && (-flex_index) as usize > arr.len() {
+                        return Err(format!("Index out of bounds"));
+                    }
+
+                    let index = if flex_index < 0 {
+                        (arr.len() as i64 + flex_index) as usize
+                    } else {
+                        flex_index as usize
+                    };
+
+                    if index >= arr.len() {
+                        return Err(format!("Index out of bounds"));
+                    }
+
+                    match &arr[index] {
+                        serde_json::Value::Null => Ok(DewSchemaLanguageResult::Null),
+                        serde_json::Value::Bool(b) => Ok(DewSchemaLanguageResult::Boolean(*b)),
+                        serde_json::Value::Number(n) => Ok(DewSchemaLanguageResult::Number(
+                            n.as_f64().ok_or("Invalid number")?,
+                        )),
+                        serde_json::Value::String(s) => {
+                            Ok(DewSchemaLanguageResult::String(s.clone()))
+                        }
+                        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+                            Ok(DewSchemaLanguageResult::Value(arr[index].clone()))
+                        }
+                    }
+                }
+                _ => Err(format!("'get_index' method can only be called on arrays")),
+            }
+        }),
+    );
+
+    map.insert(
         "length".to_string(),
         Box::new(|args, callee| {
             if !args.is_empty() {
